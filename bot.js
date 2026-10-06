@@ -16,7 +16,11 @@ const OWNER_CHAT_ID          = process.env.OWNER_CHAT_ID;
 const PORT                   = process.env.PORT || 3003;
 const APP_URL                = process.env.APP_URL || '';
 
-const CA = '2oQmHWoTZRmRLregHKjBSGJy3ueX3iRNzimy2iZCmoon';
+const CA = 'Dc9CeuctqvP947ipnCJb8fSf6HhNWDooAQxsVHj2RNBV';
+const TRADING_URL = 'https://tebfun.xyz/token/' + CA;
+const SCHEDULED_POSTS_ENABLED = process.env.ENABLE_SCHEDULED_POSTS === 'true';
+const MANUAL_POST_TOKEN = process.env.MANUAL_POST_TOKEN || '';
+const MAX_BODY_BYTES = 32 * 1024;
 
 var startTime = Date.now();
 var postsToday = 0;
@@ -30,87 +34,53 @@ var postLog = [];
 // ============================================================
 var SCHEDULE = [
   {
-    id: 'vote_reminder_morning',
-    time: '13:00', // 8am CST
+    id: 'current_mint_morning',
+    time: '13:00',
     days: 'daily',
-    text: `🚨 DAILY VOTE MISSION — FEDERATION 🚨 🌌
+    text: `$GFOF is on TebFun. 🌌
 
-✅ coinhunt.cc — search GFOF — VOTE
-✅ coinvote.cc — search GFOF — VOTE
-✅ jup.ag/tokens/${CA} — LIKE
+Current Solana CA: ${CA}
 
-3 clicks. 60 seconds.
-Votes reset every 24 hours.
+Trading: ${TRADING_URL}
+Explore: https://galacticfederation.co/
 
-Every vote puts $GFOF in front of new buyers.
-
-CA: ${CA}
-galacticfederation.co
-
-$GFOF 🚀 #GFOF #Solana #SolanaGems`
+#GFOF #Solana`
   },
   {
-    id: 'bond_update_noon',
-    time: '18:00', // 1pm CST
-    days: [1, 3, 5], // Mon, Wed, Fri
-    text: `$GFOF BOND TRACKER 🌌
+    id: 'public_build_noon',
+    time: '18:00',
+    days: [1, 3, 5],
+    text: `The Galactic Federation is building in public: missions, holder records, and transparent updates. 🌌
 
-📊 Current MC: LIVE on DexScreener
-🎯 Bond Target: $73K
-🚀 After bond: Raydium migration
+Explore: https://galacticfederation.co/
+Old-holder exchange: https://galacticfederation.co/migration
 
-Every buy moves the bar closer.
-
-Buy: dexscreener.com/solana/${CA}
-Website: galacticfederation.co
-Telegram: t.me/GFOF_SOL
-
-Not financial advice. DYOR.
-$GFOF 🚀 #GFOF #Solana #Raydium`
+#GFOF #Solana`
   },
   {
     id: 'education_evening',
-    time: '23:00', // 6pm CST
-    days: [2, 4], // Tue, Thu
-    text: `Banks borrow your money at 0.5% and lend it back at 25%. 🌌
+    time: '23:00',
+    days: [2, 4],
+    text: `Finance mission: before connecting a wallet, verify the official site and understand every approval you sign. 🌌
 
-They keep the difference.
-You get nothing.
+Explore the Galactic Federation:
+https://galacticfederation.co/
 
-DeFi flips this entirely.
-
-$GFOF Phase 3 builds a lending protocol where YOU:
-→ Deposit collateral
-→ Borrow stablecoins
-→ Keep your position
-→ Pay rates YOUR community voted on
-
-No credit score. No bank. No gatekeeper.
-
-galacticfederation.co
-
-Not financial advice. DYOR.
-$GFOF 🌌 #DeFi #Solana #GFOF #FinancialFreedom`
+#GFOF #Solana`
   },
   {
-    id: 'weekend_rally',
-    time: '15:00', // 10am CST
-    days: [0, 6], // Sat, Sun
-    text: `🌌 WEEKEND FEDERATION ROLL CALL 🌌
+    id: 'weekend_roll_call',
+    time: '15:00',
+    days: [0, 6],
+    text: `Join the Galactic Federation's next chapter. 🌌
 
-Drop a 🚀 if you are holding $GFOF.
+Staking preparation: https://galacticfederation.co/staking
+Staking pools are not open yet.
 
-The founding generation is assembling before the bond.
-Before Raydium.
-Before the galaxy finds us.
+Community: https://t.me/GFOF_SOL
+Explore: https://galacticfederation.co/
 
-That window is still open.
-
-CA: ${CA}
-galacticfederation.co
-t.me/GFOF_SOL
-
-$GFOF 🌌 #GFOF #Solana #GalacticFederation`
+#GFOF #Solana`
   },
 ];
 
@@ -217,6 +187,7 @@ function notifyOwner(msg) {
 var lastCheckedMinute = -1;
 
 function checkSchedule() {
+  if (!SCHEDULED_POSTS_ENABLED) return;
   var now = new Date();
   var minute = now.getUTCMinutes();
   if (minute === lastCheckedMinute) return;
@@ -270,6 +241,10 @@ http.createServer(function(req, res) {
       posts_today: postsToday,
       last_post: lastPostTime,
       schedule_count: SCHEDULE.length,
+      scheduled_posts_enabled: SCHEDULED_POSTS_ENABLED,
+      manual_post_enabled: !!MANUAL_POST_TOKEN,
+      ca: CA,
+      trading_url: TRADING_URL,
       post_log: postLog.slice(-5),
       credentials: {
         api_key: !!TWITTER_API_KEY,
@@ -280,14 +255,33 @@ http.createServer(function(req, res) {
     return;
   }
 
-  // Manual post trigger — POST /tweet with body {text: "..."}
+  // Manual posting requires a configured bearer token; disabled otherwise.
   if (req.url === '/tweet' && req.method === 'POST') {
+    if (!MANUAL_POST_TOKEN) { res.writeHead(503); res.end('{"error":"manual posting disabled"}'); return; }
+    var supplied = Buffer.from((req.headers || {}).authorization || '');
+    var expected = Buffer.from('Bearer ' + MANUAL_POST_TOKEN);
+    if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+      res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+    }
     var body = '';
-    req.on('data', function(c) { body += c; });
+    var bodyBytes = 0;
+    var rejected = false;
+    req.on('data', function(c) {
+      if (rejected) return;
+      bodyBytes += Buffer.byteLength(c);
+      if (bodyBytes > MAX_BODY_BYTES) {
+        rejected = true;
+        body = '';
+        res.writeHead(413); res.end('{"error":"request too large"}');
+        return;
+      }
+      body += c;
+    });
     req.on('end', function() {
+      if (rejected) return;
       try {
         var data = JSON.parse(body);
-        if (!data.text) { res.writeHead(400); res.end('{"error":"missing text"}'); return; }
+        if (!data || typeof data.text !== 'string' || !data.text.trim()) { res.writeHead(400); res.end('{"error":"missing text"}'); return; }
         postTweet(data.text, function(err, result) {
           if (err) { res.writeHead(500); res.end(JSON.stringify({error: err.message})); }
           else { res.writeHead(200, {'Content-Type':'application/json'}); res.end(JSON.stringify({success:true,result})); }
@@ -316,10 +310,12 @@ http.createServer(function(req, res) {
   SCHEDULE.forEach(function(s) { console.log('  ' + s.time + ' UTC — ' + s.id + ' — ' + (s.days === 'daily' ? 'daily' : 'days ' + JSON.stringify(s.days))); });
   console.log('');
 
-  notifyOwner('🌌 $GFOF Twitter Bot is online!\n\n' + SCHEDULE.length + ' scheduled posts active.\nDashboard: ' + (APP_URL || 'not set'));
+  notifyOwner('🌌 $GFOF Twitter Bot is online!\n\nScheduled posting: ' + (SCHEDULED_POSTS_ENABLED ? 'enabled' : 'disabled') + '.\nDashboard: ' + (APP_URL || 'not set'));
 
   // Start scheduler
-  setInterval(checkSchedule, 30 * 1000); // Check every 30 seconds
-  checkSchedule();
+  if (SCHEDULED_POSTS_ENABLED) {
+    setInterval(checkSchedule, 30 * 1000);
+    checkSchedule();
+  }
   keepAlive();
 });

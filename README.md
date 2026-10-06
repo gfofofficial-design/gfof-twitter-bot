@@ -1,57 +1,53 @@
-# $GFOF Twitter Bot
+# $GFOF X bot — current mint and posting controls
 
-Auto-posts scheduled content to X (Twitter) for @GFOF_Offcial.
+Current Solana mint: `Dc9CeuctqvP947ipnCJb8fSf6HhNWDooAQxsVHj2RNBV`.
 
-## Setup Steps
+Trading: https://tebfun.xyz/token/Dc9CeuctqvP947ipnCJb8fSf6HhNWDooAQxsVHj2RNBV
 
-### Step 1 — Get X API Credentials
+## Deployment
 
-1. Go to developer.twitter.com
-2. Sign in with @GFOF_Offcial account
-3. Create a new App (call it "GFOF Bot")
-4. Under "Keys and Tokens" get:
-   - API Key (Consumer Key)
-   - API Key Secret (Consumer Secret)
-   - Access Token (for @GFOF_Offcial)
-   - Access Token Secret
-5. Set App permissions to "Read and Write"
+Use the existing service and account credentials when applying this update.
+Build command: `npm install`. Start command: `node bot.js`.
+Keep the existing X credential variables, Telegram owner notification destination,
+`PORT`, and `APP_URL` settings.
 
-### Step 2 — Deploy on Render
+Do not activate posting until the owner has reviewed the templates and account.
 
-1. Upload this folder to a new GitHub repo called "gfof-twitter-bot"
-2. Create new Web Service on Render
-3. Connect the repo
-4. Build: npm install | Start: node bot.js
+| Variable | Purpose |
+| --- | --- |
+| TWITTER_API_KEY / TWITTER_API_SECRET | Existing X application credentials |
+| TWITTER_ACCESS_TOKEN / TWITTER_ACCESS_SECRET | Existing authorized account credentials |
+| TELEGRAM_TOKEN / OWNER_CHAT_ID | Existing owner notification destination |
+| APP_URL | Actual deployed service URL |
+| ENABLE_SCHEDULED_POSTS | Set exactly `true` to enable scheduling; disabled by default |
+| MANUAL_POST_TOKEN | Secret bearer token for manual posting; disabled when unset |
 
-### Step 3 — Set Environment Variables
+## Scheduled templates
 
-| Variable | Value |
-|----------|-------|
-| TWITTER_API_KEY | Your X API Key |
-| TWITTER_API_SECRET | Your X API Secret |
-| TWITTER_ACCESS_TOKEN | Access Token for @GFOF_Offcial |
-| TWITTER_ACCESS_SECRET | Access Token Secret |
-| TELEGRAM_TOKEN | Bot token (for notifications to you) |
-| OWNER_CHAT_ID | Your personal Telegram chat ID |
-| APP_URL | https://gfof-twitter-bot.onrender.com |
+The four templates cover the current mint, public build, wallet-approval education,
+and community/staking preparation. They remove the old contract, Moonshot/Raydium
+claims, the $73K bonding target, old listing-vote links, and lending promises.
+Staking pools are described as not open.
 
-### Step 4 — Verify
+Times use UTC; Chicago local times change with daylight saving time.
 
-Visit https://gfof-twitter-bot.onrender.com/schedule to see scheduled posts.
-Visit /ping to check status.
+- Daily 13:00 UTC: current mint.
+- Monday/Wednesday/Friday 18:00 UTC: public build and old-holder exchange details.
+- Tuesday/Thursday 23:00 UTC: wallet-approval education.
+- Saturday/Sunday 15:00 UTC: community and staking preparation.
 
-## Scheduled Posts
+## Manual posting
 
-- Daily 8am CST — Vote reminder (CoinHunt + CoinVote + Jupiter)
-- Mon/Wed/Fri 1pm CST — Bond tracker update
-- Tue/Thu 6pm CST — Education post
-- Sat/Sun 10am CST — Weekend community rally
+`POST /tweet` requires `Authorization: Bearer <MANUAL_POST_TOKEN>` and a JSON
+body containing a nonblank string `text`. Unconfigured manual posting returns
+503; invalid or missing authorization returns 401 before any posting call.
+Bodies above 32 KiB return 413. Store the token as a secret environment variable.
 
-## Manual Post
+## Read-only checks
 
-POST to /tweet with JSON body: {"text": "Your tweet here"}
+`GET /ping` and `GET /` report the current mint, trading link, and whether
+scheduled/manual posting is enabled. `GET /schedule` lists template previews.
 
-## Edit Schedule
+## Validation
 
-Open bot.js and edit the SCHEDULE array at the top of the file.
-Each item has: id, time (UTC), days (array or 'daily'), text.
+Run `npm test`. The isolated tests make no network calls and send no posts.

@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "$GFOF Twitter/X Auto-Post Bot",
   "main": "bot.js",
-  "scripts": { "start": "node bot.js" },
-  "engines": { "node": ">=14" }
+  "scripts": {
+    "start": "node bot.js",
+    "test": "node bot.test.cjs"
+  },
+  "engines": {
+    "node": ">=14"
+  }
 }
